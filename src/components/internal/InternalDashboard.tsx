@@ -1,24 +1,14 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
 import { useCalculator } from "@/components/calculator/CalculatorProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrency, formatNumber } from "@/lib/utils";
-import { SaveToCrmDialog } from "./SaveToCrmDialog";
 import { useToast } from "@/hooks/use-toast";
-import { Wifi, Copy, Settings, Sun, BarChart, FileText, WifiOff } from "lucide-react";
-import { Skeleton } from "../ui/skeleton";
+import { Copy, Settings, Sun, BarChart, FileText } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-
-
-interface GhlStatus {
-    connected: boolean;
-    locationId?: string;
-}
 
 const roofTypes = [
     'Telha Cerâmica',
@@ -42,80 +32,7 @@ const clientTypes = [
 
 export function InternalDashboard() {
   const { data, updateData, results, params, setParams } = useCalculator();
-  const [ghlStatus, setGhlStatus] = useState<GhlStatus>({ connected: false });
-  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const searchParams = useSearchParams();
-
-  const checkGhlStatus = useCallback(() => {
-     fetch('/api/auth/status')
-        .then(res => res.json())
-        .then(status => {
-            setGhlStatus(status);
-            setLoading(false);
-        });
-  }, []);
-
-  const handleOauthMessage = useCallback(async (event: MessageEvent) => {
-    if (event.origin !== window.location.origin || event.data.type !== 'GHL_OAUTH_DONE') {
-      return;
-    }
-
-    if (event.data.success) {
-      toast({ title: "Conectado com sucesso!", description: "Iniciando configuração da sua conta..." });
-      try {
-        const installRes = await fetch('/api/install', { method: 'POST' });
-        const installResult = await installRes.json();
-        if (!installRes.ok) throw new Error(installResult.error || "Falha na instalação");
-
-        toast({ title: 'Instalação completa!', description: 'Campos e menu customizados foram configurados.' });
-      } catch (err) {
-        toast({ title: 'Erro na Instalação', description: (err as Error).message, variant: 'destructive' });
-      } finally {
-        checkGhlStatus();
-      }
-    } else {
-      toast({ title: 'Falha na conexão', description: event.data.error || 'Não foi possível conectar ao GoHighLevel.', variant: 'destructive' });
-    }
-  }, [toast, checkGhlStatus]);
-
-  useEffect(() => {
-    checkGhlStatus();
-    window.addEventListener('message', handleOauthMessage);
-
-    const error = searchParams.get('error_description');
-    if (error) {
-        toast({
-            title: 'Falha na conexão',
-            description: error || 'Não foi possível conectar ao GoHighLevel.',
-            variant: 'destructive',
-        });
-    }
-
-    return () => {
-      window.removeEventListener('message', handleOauthMessage);
-    };
-  }, [searchParams, toast, checkGhlStatus, handleOauthMessage]);
-  
-  const handleConnect = async () => {
-    try {
-        const res = await fetch('/api/oauth/start');
-        const { authUrl } = await res.json();
-        window.open(authUrl, 'ghl_oauth', 'width=600,height=700,left=200,top=100');
-    } catch (error) {
-        toast({ title: 'Erro ao iniciar conexão', description: 'Não foi possível obter a URL de autorização.' });
-    }
-  };
-
-  const handleDisconnect = async () => {
-    try {
-        await fetch('/api/auth/logout', { method: 'POST'});
-        toast({ title: 'Desconectado', description: 'Você foi desconectado do GoHighLevel.' });
-        checkGhlStatus();
-    } catch (err) {
-        toast({ title: 'Erro', description: 'Não foi possível desconectar.', variant: 'destructive'});
-    }
-  };
 
   const handleCopy = () => {
     if (!results) return;
@@ -123,27 +40,6 @@ export function InternalDashboard() {
     navigator.clipboard.writeText(summary);
     toast({ title: 'Resumo copiado!' });
   };
-  
-  if (loading) {
-      return (
-        <div className="space-y-8 container mx-auto p-4 md:p-8">
-            <div className="flex justify-between items-center">
-                <Skeleton className="h-12 w-1/3" />
-                <Skeleton className="h-10 w-48" />
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-6">
-                    <Skeleton className="h-64 w-full" />
-                    <Skeleton className="h-48 w-full" />
-                </div>
-                <div className="space-y-6">
-                    <Skeleton className="h-80 w-full" />
-                </div>
-            </div>
-        </div>
-      );
-  }
-
 
   return (
     <div className="space-y-8 container mx-auto p-4 md:p-8">
@@ -154,23 +50,6 @@ export function InternalDashboard() {
                 <h1 className="text-2xl md:text-3xl font-bold">SolarCalc</h1>
                 <p className="text-muted-foreground">Versão para Vendedores</p>
             </div>
-        </div>
-        <div className="flex items-center gap-2">
-            {ghlStatus.connected ? (
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 text-sm text-green-700 border border-green-200 bg-green-50 rounded-lg px-3 py-2 shrink-0">
-                        <Wifi className="h-4 w-4"/>
-                        <span className="font-medium">Conectado: {ghlStatus.locationId}</span>
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={handleDisconnect} aria-label="Desconectar">
-                        <WifiOff className="h-4 w-4 text-muted-foreground"/>
-                    </Button>
-                </div>
-            ) : (
-                <Button onClick={handleConnect} className="bg-orange-500 hover:bg-orange-600 text-white">
-                    <Wifi className="mr-2 h-4 w-4" /> Conectar ao HighLevel
-                </Button>
-            )}
         </div>
       </header>
 
@@ -291,9 +170,8 @@ export function InternalDashboard() {
                                 </Card>
                             </div>
                              <div className="space-y-2 pt-4">
-                                <SaveToCrmDialog isConnected={ghlStatus.connected} locationId={ghlStatus.locationId} />
-                                <Button variant="outline" className="w-full" onClick={handleCopy} disabled={!results}>
-                                    <Copy className="mr-2 h-4 w-4" /> Copiar p/ WhatsApp
+                                <Button className="w-full bg-gradient-to-r from-orange-500 to-yellow-500 text-white hover:from-orange-600 hover:to-yellow-600 shadow-lg hover:scale-105 transition-transform" onClick={handleCopy} disabled={!results}>
+                                    <Copy className="mr-2 h-4 w-4" /> Copiar
                                 </Button>
                             </div>
                         </>
