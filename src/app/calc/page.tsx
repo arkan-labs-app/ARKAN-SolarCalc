@@ -3,10 +3,13 @@
 import { CalculatorProvider } from '@/components/calculator/CalculatorProvider';
 import { Calculator } from '@/components/calculator/Calculator';
 import React, { Suspense } from 'react';
+import { useIframeHeight } from '@/lib/useIframeHeight';
 
 function PageContent() {
     // This component is designed to be embedded in an iframe.
     // It has a transparent background to blend with the parent page.
+    useIframeHeight("*");
+
     return (
         <>
             {/* garantir canvas limpo no embed */}

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
+import React, { createContext, useContext, useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { CalculatorData, CalculationParams, CalculationResults } from '@/types';
 import { calculateROI } from '@/lib/calculator';
@@ -37,11 +37,20 @@ const postDataToParent = (data: any) => {
 }
 
 export function CalculatorProvider({ children }: { children: React.ReactNode }) {
-  const [step, setStep] = useState(1);
+  const [step, _setStep] = useState(1);
   const [data, setData] = useState<Partial<CalculatorData>>(initialData);
   const [params, setParams] = useState<CalculationParams>(defaults);
   
   const searchParams = useSearchParams();
+
+  const setStep = useCallback((newStep: number) => {
+    _setStep(newStep);
+    // Dispara a função global para recalcular a altura do iframe
+    if (typeof window !== 'undefined' && (window as any).sendIframeHeight) {
+      // Adiciona um pequeno delay para garantir que o DOM foi atualizado
+      setTimeout(() => (window as any).sendIframeHeight(), 50);
+    }
+  }, []);
 
   useEffect(() => {
     const tarifa = searchParams.get('tarifa');
