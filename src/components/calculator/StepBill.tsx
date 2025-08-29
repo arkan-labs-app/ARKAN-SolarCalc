@@ -8,8 +8,8 @@ export default function StepBill() {
   const { data, updateData, setStep } = useCalculator();
 
   return (
-    <div className="flex flex-col items-center gap-8">
-      <div className="w-full max-w-md">
+    <div className="flex flex-col items-center gap-8 w-full max-w-md">
+      <div className="w-full">
         <div className="text-center text-3xl sm:text-4xl font-bold text-primary mb-4 truncate">
           {formatCurrency(data.valor_da_conta_de_luz || 0)}
         </div>

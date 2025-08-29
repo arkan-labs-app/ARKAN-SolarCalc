@@ -7,9 +7,14 @@ import { Label } from '@/components/ui/label';
 export default function StepLocation() {
   const { data, updateData, setStep } = useCalculator();
 
+  const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, ''); // Remove non-digit characters
+    updateData({ cep: value });
+  };
+
   return (
-    <div className="flex flex-col items-center gap-4">
-      <div className="grid gap-3 w-full max-w-md">
+    <div className="flex flex-col items-center gap-4 w-full max-w-md">
+      <div className="grid gap-4 w-full">
         <div className="grid gap-2">
             <Label htmlFor="cidade">Cidade</Label>
             <Input
@@ -31,20 +36,22 @@ export default function StepLocation() {
             />
         </div>
         <div className="grid gap-2">
-            <Label htmlFor="cep">CEP (Opcional)</Label>
+            <Label htmlFor="cep">CEP</Label>
             <Input
               id="cep"
-              placeholder="Ex: 12345-678"
+              placeholder="Ex: 01000-000"
               value={data.cep || ''}
-              onChange={(e) => updateData({ cep: e.target.value })}
+              onChange={handleCepChange}
+              maxLength={8}
+              required
             />
         </div>
       </div>
-      <div className="flex justify-center gap-4 w-full mt-2">
+      <div className="flex justify-center gap-4 w-full mt-4">
         <Button variant="outline" onClick={() => setStep(4)}>
           &larr; Voltar
         </Button>
-        <Button onClick={() => setStep(6)} disabled={!data.cidade || !data.bairro} className="bg-gradient-to-r from-orange-500 to-yellow-500 text-white hover:from-orange-600 hover:to-yellow-600 shadow-lg hover:scale-105 transition-transform">
+        <Button onClick={() => setStep(6)} disabled={!data.cidade || !data.bairro || !data.cep} className="bg-gradient-to-r from-orange-500 to-yellow-500 text-white hover:from-orange-600 hover:to-yellow-600 shadow-lg hover:scale-105 transition-transform">
           Ver Minha Economia &rarr;
         </Button>
       </div>

@@ -15,17 +15,17 @@ export default function StepTimeline() {
   const { data, updateData, setStep } = useCalculator();
 
   return (
-    <div className="flex flex-col items-center gap-6">
+    <div className="flex flex-col items-center gap-6 w-full max-w-md">
       <RadioGroup
         value={data.prazo_para_instalacao}
         onValueChange={(value) => updateData({ prazo_para_instalacao: value })}
-        className="grid gap-3 w-full max-w-md"
+        className="grid gap-3 w-full"
       >
         {timelineOptions.map((option) => (
           <Label
             key={option}
             htmlFor={option}
-            className="flex items-center gap-4 rounded-md border p-3 cursor-pointer hover:bg-accent/20 has-[[data-state=checked]]:bg-primary has-[[data-state=checked]]:text-primary-foreground"
+            className="flex items-center gap-4 rounded-md border p-3 cursor-pointer hover:bg-accent/10 has-[[data-state=checked]]:bg-primary has-[[data-state=checked]]:text-primary-foreground has-[[data-state=checked]]:border-primary"
           >
             <RadioGroupItem value={option} id={option} />
             {option}
