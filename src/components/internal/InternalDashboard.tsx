@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useCalculator } from "@/components/calculator/CalculatorProvider";
 import { Button } from "@/components/ui/button";
@@ -48,30 +47,42 @@ export function InternalDashboard() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
 
-  const checkGhlStatus = () => {
+  const checkGhlStatus = useCallback(() => {
      fetch('/api/auth/status')
         .then(res => res.json())
         .then(status => {
             setGhlStatus(status);
+            setLoading(false);
         });
-  }
+  }, []);
+
+  const handleOauthMessage = useCallback(async (event: MessageEvent) => {
+    if (event.origin !== window.location.origin || event.data.type !== 'GHL_OAUTH_DONE') {
+      return;
+    }
+
+    if (event.data.success) {
+      toast({ title: "Conectado com sucesso!", description: "Iniciando configuração da sua conta..." });
+      try {
+        const installRes = await fetch('/api/install', { method: 'POST' });
+        const installResult = await installRes.json();
+        if (!installRes.ok) throw new Error(installResult.error || "Falha na instalação");
+
+        toast({ title: 'Instalação completa!', description: 'Campos e menu customizados foram configurados.' });
+      } catch (err) {
+        toast({ title: 'Erro na Instalação', description: (err as Error).message, variant: 'destructive' });
+      } finally {
+        checkGhlStatus();
+      }
+    } else {
+      toast({ title: 'Falha na conexão', description: event.data.error || 'Não foi possível conectar ao GoHighLevel.', variant: 'destructive' });
+    }
+  }, [toast, checkGhlStatus]);
 
   useEffect(() => {
     checkGhlStatus();
-    if (searchParams.get('fresh_connection') === 'true') {
-        toast({ title: "Conectado com sucesso!", description: "Iniciando configuração..." });
-        fetch('/api/install', { method: 'POST' })
-            .then(res => res.json())
-            .then(installResult => {
-                if (installResult.success) {
-                    toast({ title: 'Instalação completa!', description: 'Campos e menu customizados foram configurados.' });
-                } else {
-                    throw new Error(installResult.error);
-                }
-            })
-            .catch(err => toast({ title: 'Erro na Instalação', description: err.message, variant: 'destructive' }));
-    }
-        
+    window.addEventListener('message', handleOauthMessage);
+
     const error = searchParams.get('error_description');
     if (error) {
         toast({
@@ -80,14 +91,27 @@ export function InternalDashboard() {
             variant: 'destructive',
         });
     }
-    setLoading(false);
-  }, [searchParams, toast]);
+
+    return () => {
+      window.removeEventListener('message', handleOauthMessage);
+    };
+  }, [searchParams, toast, checkGhlStatus, handleOauthMessage]);
   
+  const handleConnect = async () => {
+    try {
+        const res = await fetch('/api/oauth/start');
+        const { authUrl } = await res.json();
+        window.open(authUrl, 'ghl_oauth', 'width=600,height=700,left=200,top=100');
+    } catch (error) {
+        toast({ title: 'Erro ao iniciar conexão', description: 'Não foi possível obter a URL de autorização.' });
+    }
+  };
+
   const handleDisconnect = async () => {
     try {
         await fetch('/api/auth/logout', { method: 'POST'});
         toast({ title: 'Desconectado', description: 'Você foi desconectado do GoHighLevel.' });
-        checkGhlStatus(); // Re-check status to update the UI
+        checkGhlStatus();
     } catch (err) {
         toast({ title: 'Erro', description: 'Não foi possível desconectar.', variant: 'destructive'});
     }
@@ -143,10 +167,8 @@ export function InternalDashboard() {
                     </Button>
                 </div>
             ) : (
-                <Button asChild className="bg-orange-500 hover:bg-orange-600 text-white">
-                    <Link href="/api/oauth/start">
-                        <Wifi className="mr-2 h-4 w-4" /> Conectar ao HighLevel
-                    </Link>
+                <Button onClick={handleConnect} className="bg-orange-500 hover:bg-orange-600 text-white">
+                    <Wifi className="mr-2 h-4 w-4" /> Conectar ao HighLevel
                 </Button>
             )}
         </div>
@@ -269,7 +291,7 @@ export function InternalDashboard() {
                                 </Card>
                             </div>
                              <div className="space-y-2 pt-4">
-                                <SaveToCrmDialog />
+                                <SaveToCrmDialog isConnected={ghlStatus.connected} locationId={ghlStatus.locationId} />
                                 <Button variant="outline" className="w-full" onClick={handleCopy} disabled={!results}>
                                     <Copy className="mr-2 h-4 w-4" /> Copiar p/ WhatsApp
                                 </Button>

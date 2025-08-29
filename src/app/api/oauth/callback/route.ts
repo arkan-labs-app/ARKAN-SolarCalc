@@ -1,15 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
+function getPopupResponse(success: boolean, error?: string) {
+    const message = JSON.stringify({ type: 'GHL_OAUTH_DONE', success, error });
+    return new NextResponse(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <script>
+                window.opener.postMessage(${message}, '*');
+                window.close();
+            </script>
+        </head>
+        <body>
+            <p>Conectando, por favor aguarde...</p>
+        </body>
+        </html>
+    `, { headers: { 'Content-Type': 'text/html' }});
+}
+
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const code = searchParams.get('code');
   
   if (!code) {
-    const errorUrl = new URL('/internal', req.nextUrl.origin);
-    errorUrl.searchParams.set('error', 'oauth_failed');
-    errorUrl.searchParams.set('error_description', 'Authorization code not provided.');
-    return NextResponse.redirect(errorUrl);
+    return getPopupResponse(false, 'Código de autorização não fornecido.');
   }
 
   try {
@@ -31,24 +47,18 @@ export async function GET(req: NextRequest) {
     const tokens = await tokenResponse.json();
 
     if (tokens.error) {
-        throw new Error(tokens.error_description || 'An unknown error occurred during token exchange.');
+        throw new Error(tokens.error_description || 'Ocorreu um erro desconhecido durante a troca de tokens.');
     }
     
-    // Securely store tokens in an HTTPOnly cookie
     const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === 'production', path: '/' };
     cookies().set('ghl_access_token', tokens.access_token, { ...cookieOptions, maxAge: tokens.expires_in });
     cookies().set('ghl_refresh_token', tokens.refresh_token, cookieOptions);
     cookies().set('ghl_location_id', tokens.locationId, cookieOptions);
-
-    const internalUrl = new URL('/internal', req.nextUrl.origin);
-    internalUrl.searchParams.set('fresh_connection', 'true');
-    return NextResponse.redirect(internalUrl);
+    
+    return getPopupResponse(true);
 
   } catch (error) {
     console.error('OAuth callback error:', error);
-    const errorUrl = new URL('/internal', req.nextUrl.origin);
-    errorUrl.searchParams.set('error', 'oauth_failed');
-    errorUrl.searchParams.set('error_description', (error as Error).message);
-    return NextResponse.redirect(errorUrl);
+    return getPopupResponse(false, (error as Error).message);
   }
 }

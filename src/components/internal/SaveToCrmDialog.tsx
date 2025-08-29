@@ -16,7 +16,12 @@ import { useCalculator } from '@/components/calculator/CalculatorProvider';
 import { useToast } from '@/hooks/use-toast';
 import { Save } from 'lucide-react';
 
-export function SaveToCrmDialog() {
+interface SaveToCrmDialogProps {
+  isConnected: boolean;
+  locationId?: string;
+}
+
+export function SaveToCrmDialog({ isConnected, locationId }: SaveToCrmDialogProps) {
   const { data, results, updateData } = useCalculator();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -32,10 +37,11 @@ export function SaveToCrmDialog() {
         toast({ title: "Preencha nome e WhatsApp", variant: "destructive"});
         return;
     }
-    if (data.whatsapp.length !== 11) {
+    // Basic phone validation for Brazil
+    if (!/^\d{10,11}$/.test(data.whatsapp)) {
         toast({
             title: "WhatsApp Inválido",
-            description: "O número de WhatsApp deve ter 11 dígitos, incluindo o DDD.",
+            description: "O número de WhatsApp deve ter 10 ou 11 dígitos, incluindo o DDD.",
             variant: "destructive"
         });
         return;
@@ -44,25 +50,40 @@ export function SaveToCrmDialog() {
 
     setLoading(true);
     try {
-        const payload = { ...data, ...results };
-        const response = await fetch('/api/save', {
+        const payload = {
+          locationId,
+          name: data.nome,
+          phone: data.whatsapp,
+          email: data.email || '',
+          entrada: {
+            casa_ou_empresa: data.casa_ou_empresa,
+            valor_da_conta_de_luz: data.valor_da_conta_de_luz,
+            prazo_para_instalacao: data.prazo_para_instalacao,
+            tipo_de_telha: data.tipo_de_telha,
+            cidade: data.cidade,
+            bairro: data.bairro,
+            cep: data.cep,
+          },
+          saida: results
+        };
+
+        const response = await fetch('/api/ghl/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Falha ao salvar no CRM');
-        }
-        
         const result = await response.json();
 
-        toast({ title: "Sucesso!", description: `Contato e oportunidade atualizados no CRM. ID: ${result.contactId}`});
+        if (!response.ok) {
+            throw new Error(result.error || 'Falha ao salvar no CRM');
+        }
+        
+        toast({ title: "Salvo no CRM!", description: `Contato e oportunidade atualizados. ID do Contato: ${result.contactId}`});
         setOpen(false);
 
     } catch (error) {
-        toast({ title: "Erro", description: (error as Error).message, variant: 'destructive'});
+        toast({ title: "Erro ao Salvar", description: (error as Error).message, variant: 'destructive'});
     } finally {
         setLoading(false);
     }
@@ -71,7 +92,7 @@ export function SaveToCrmDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="w-full" disabled={!results}>
+        <Button className="w-full" disabled={!results || !isConnected}>
           <Save className="mr-2 h-4 w-4" /> Salvar no CRM (GHL)
         </Button>
       </DialogTrigger>
@@ -94,6 +115,12 @@ export function SaveToCrmDialog() {
               WhatsApp
             </Label>
             <Input id="whatsapp" value={data.whatsapp || ''} onChange={handleWhatsappChange} className="col-span-3" placeholder="Apenas números (com DDD)" />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="email" className="text-right">
+              Email
+            </Label>
+            <Input id="email" type="email" value={data.email || ''} onChange={(e) => updateData({ email: e.target.value })} className="col-span-3" placeholder="Email (opcional)" />
           </div>
         </div>
         <DialogFooter>

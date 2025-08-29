@@ -10,6 +10,7 @@ export const CalculatorSchema = z.object({
   cep: z.string().optional(),
   nome: z.string().optional(),
   whatsapp: z.string().optional(),
+  email: z.string().email().optional(),
 });
 
 export type CalculatorData = z.infer<typeof CalculatorSchema>;
@@ -24,7 +25,7 @@ export interface CalculationResults {
   consumo_kwh_mes: number;
   sistema_kwp: number;
   custo_estimado_rs: number;
-agora deu esse erro...  geracao_kwh_mes: number;
+  geracao_kwh_mes: number;
   economia_mensal_rs: number;
   payback_meses: number;
   economia_25_anos: number;

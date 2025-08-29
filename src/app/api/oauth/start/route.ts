@@ -9,18 +9,19 @@ export async function GET() {
   }
 
   const baseUrl = 'https://marketplace.gohighlevel.com/oauth/chooselocation';
+  
+  // Scopes corretos e válidos
   const scopes = [
-    'locations.readonly',
-    'users.readonly',
-    'locations/customFields.write',
+    'locations.read',
+    'users.read',
     'contacts.write',
-    'contacts.readonly',
     'opportunities.write',
-    'opportunities.readonly',
-    'locations/customMenus.write'
+    'custom-fields.write',
+    'custom-menus.write'
   ];
 
   const authUrl = `${baseUrl}?response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&client_id=${clientId}&scope=${scopes.join(' ')}`;
 
-  return NextResponse.redirect(authUrl);
+  // O frontend irá redirecionar para esta URL
+  return NextResponse.json({ authUrl });
 }
