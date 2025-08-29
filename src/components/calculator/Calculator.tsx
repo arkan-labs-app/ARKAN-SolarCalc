@@ -30,21 +30,23 @@ export function Calculator() {
   const { component: CurrentStepComponent, title, description, stepQuestion } = currentStepInfo;
 
   return (
-    <Card className="w-full max-w-lg overflow-hidden rounded-2xl shadow-lg border-none bg-card">
-       {step !== 6 && (
-        <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-400 text-center p-6 text-white">
-          <CardTitle className="text-2xl font-bold">{title}</CardTitle>
-          <CardDescription className="text-base text-blue-100 pt-1">{description}</CardDescription>
-        </CardHeader>
-      )}
-      <CardContent className="p-6">
-        {step <= TOTAL_STEPS && <ProgressBar currentStep={step} totalSteps={TOTAL_STEPS} />}
-        
-        <div className="min-h-[280px] flex flex-col items-center justify-center pt-2">
-            {stepQuestion && <h3 className="text-center text-lg text-foreground mb-6">{stepQuestion}</h3>}
-            <CurrentStepComponent />
-        </div>
-      </CardContent>
-    </Card>
+    <div className="mx-auto w-full max-w-[520px]">
+        <Card className="rounded-xl bg-white p-4 md:p-6 shadow">
+           {step !== 6 && (
+            <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-400 text-center p-6 text-white rounded-t-lg -m-4 md:-m-6 mb-4 md:mb-6">
+              <CardTitle className="text-2xl font-bold">{title}</CardTitle>
+              <CardDescription className="text-base text-blue-100 pt-1">{description}</CardDescription>
+            </CardHeader>
+          )}
+          <CardContent className="p-0">
+            {step <= TOTAL_STEPS && <ProgressBar currentStep={step} totalSteps={TOTAL_STEPS} />}
+            
+            <div className="min-h-[280px] flex flex-col items-center justify-center pt-2">
+                {stepQuestion && <h3 className="text-center text-lg text-foreground mb-6">{stepQuestion}</h3>}
+                <CurrentStepComponent />
+            </div>
+          </CardContent>
+        </Card>
+    </div>
   );
 }

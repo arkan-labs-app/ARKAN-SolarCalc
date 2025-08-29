@@ -8,11 +8,17 @@ function PageContent() {
     // This component is designed to be embedded in an iframe.
     // It has a transparent background to blend with the parent page.
     return (
-        <CalculatorProvider>
-            <main className="flex w-full flex-col items-center justify-center bg-transparent p-0 md:p-4">
-                <Calculator />
-            </main>
-        </CalculatorProvider>
+        <>
+            {/* garantir canvas limpo no embed */}
+            <style jsx global>{`
+              html, body { margin: 0; padding: 0; background: transparent; }
+            `}</style>
+            <CalculatorProvider>
+                <main className="w-full mx-auto">
+                    <Calculator />
+                </main>
+            </CalculatorProvider>
+        </>
     )
 }
 

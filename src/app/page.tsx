@@ -35,7 +35,7 @@ export default function HomePage() {
                 Use nossa calculadora para gerar um orçamento instantâneo, visualizar o potencial de economia e dar o primeiro passo para instalar um sistema de energia solar.
               </p>
               <Button 
-                onClick={() => router.push('/calculator')}
+                onClick={() => router.push('/calc')}
                 className="w-full mt-auto bg-gradient-to-r from-orange-500 to-yellow-400 text-white font-bold py-3 text-base hover:from-orange-600 hover:to-yellow-500 transition-all"
               >
                 Iniciar Simulação <ArrowRight className="ml-2 w-5 h-5" />
