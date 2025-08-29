@@ -1,3 +1,5 @@
+
+"use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -5,7 +7,11 @@ import { Users, User, Sun, ArrowRight } from 'lucide-react';
 import React from 'react';
 
 function PageContent() {
-  const currentYear = new Date().getFullYear();
+  const [currentYear, setCurrentYear] = React.useState(new Date().getFullYear());
+
+  React.useEffect(() => {
+    setCurrentYear(new Date().getFullYear());
+  }, []);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
@@ -33,7 +39,7 @@ function PageContent() {
               Use nossa calculadora para gerar um orçamento instantâneo, visualizar o potencial de economia e dar o primeiro passo para instalar um sistema de energia solar.
             </p>
             <Button asChild className="w-full bg-gradient-to-r from-orange-500 to-yellow-500 text-white hover:from-orange-600 hover:to-yellow-600 shadow-lg hover:scale-105 transition-transform">
-              <Link href="/embed">
+              <Link href="/calculator">
                 Iniciar Simulação <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
@@ -72,10 +78,12 @@ function PageContent() {
   );
 }
 
-export default function Home() {
+function HomePage() {
     return (
         <React.Suspense fallback={<div>Carregando...</div>}>
             <PageContent />
         </React.Suspense>
     )
 }
+
+export default HomePage;

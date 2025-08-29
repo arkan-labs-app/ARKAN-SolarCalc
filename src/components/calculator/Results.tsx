@@ -1,3 +1,4 @@
+
 "use client";
 import { useCalculator } from './CalculatorProvider';
 import { Button } from '@/components/ui/button';
@@ -14,9 +15,14 @@ export default function Results() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const handleDataChange = (field: 'nome' | 'whatsapp', value: string) => {
+    // Esta função garante que os dados de nome/whats sejam enviados ao GHL enquanto são digitados
+    updateData({ [field]: value });
+  };
+  
   const handleWhatsappChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, ''); // Remove non-digit characters
-    updateData({ whatsapp: value });
+    handleDataChange('whatsapp', value);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -29,10 +35,10 @@ export default function Results() {
       });
       return;
     }
-     if (data.whatsapp.length !== 11) {
+     if (data.whatsapp.length < 10 || data.whatsapp.length > 11) {
       toast({
         title: "WhatsApp Inválido",
-        description: "O número de WhatsApp deve ter 11 dígitos, incluindo o DDD.",
+        description: "O número de WhatsApp deve ter entre 10 e 11 dígitos, incluindo o DDD.",
         variant: "destructive"
       });
       return;
@@ -40,26 +46,25 @@ export default function Results() {
     
     setIsSubmitting(true);
     const allData = { ...data, ...results };
-    
-    // Em um app real, o postMessage pode ser usado se o app estiver em um iFrame
-    window.parent.postMessage({ type: 'ROI_FORM', payload: allData }, '*');
-    console.log("postMessage sent to parent with payload:", allData);
+
+    // Envia os dados FINAIS para a janela pai (onde o GHL estará)
+    // Isso garante que todos os dados, incluindo os resultados, sejam enviados.
+    if (typeof window !== 'undefined') {
+        window.parent.postMessage({
+            type: 'ARKAN_SOLAR_CALC_SUBMIT',
+            payload: allData
+        }, '*');
+        console.log("Final postMessage sent to parent with payload:", allData);
+    }
     
     toast({
       title: "Proposta a caminho!",
-      description: "Você será redirecionado para nossa página de agendamento.",
+      description: "Seus dados foram enviados. Complete o agendamento.",
       className: "bg-green-500 text-white",
     });
 
-    // Apenas para demo, resetamos o formulário. Em produção, redirecionar.
-    // setTimeout(() => {
-    //   window.location.href = 'https://sua-url-de-agendamento.gohighlevel.com';
-    // }, 1000);
-
-    setTimeout(() => {
-        reset();
-        setIsSubmitting(false);
-    }, 5000); 
+    // Em vez de redirecionar ou resetar, apenas desabilitamos o formulário
+    // para que o usuário interaja com o formulário do GHL a seguir.
   };
 
   if (!results) {
@@ -109,18 +114,18 @@ export default function Results() {
         </div>
       
       <Card className="w-full p-4 bg-primary/10 mt-1">
-        <p className="text-base font-semibold text-center text-primary mb-2">Transforme essa economia em realidade! Preencha abaixo para receber seu orçamento detalhado e gratuito.</p>
+        <p className="text-base font-semibold text-center text-primary mb-2">Preencha abaixo para enviar seu orçamento e agendar uma conversa.</p>
         <form onSubmit={handleSubmit} className="w-full space-y-3">
           <div className="grid gap-1">
             <Label htmlFor="nome" className="text-foreground/90">Nome Completo</Label>
-            <Input id="nome" placeholder="Seu nome e sobrenome" required value={data.nome || ''} onChange={(e) => updateData({ nome: e.target.value })} />
+            <Input id="nome" placeholder="Seu nome e sobrenome" required value={data.nome || ''} onChange={(e) => handleDataChange('nome', e.target.value)} disabled={isSubmitting}/>
           </div>
           <div className="grid gap-1">
-            <Label htmlFor="whatsapp" className="text-foreground/90">WhatsApp</Label>
-            <Input id="whatsapp" type="tel" placeholder="(00) 90000-0000" required value={data.whatsapp || ''} onChange={handleWhatsappChange}/>
+            <Label htmlFor="whatsapp" className="text-foreground/90">WhatsApp (com DDD)</Label>
+            <Input id="whatsapp" type="tel" placeholder="(00) 90000-0000" required value={data.whatsapp || ''} onChange={handleWhatsappChange} disabled={isSubmitting}/>
           </div>
           <Button type="submit" size="lg" disabled={isSubmitting} className="w-full bg-gradient-to-r from-orange-500 to-yellow-500 text-white hover:from-orange-600 hover:to-yellow-600 text-base md:text-lg font-bold py-3 md:py-7 shadow-lg hover:scale-105 transition-transform">
-            {isSubmitting ? 'ENVIANDO...' : 'QUERO MEU ORÇAMENTO GRÁTIS!'}
+            {isSubmitting ? 'DADOS ENVIADOS!' : 'QUERO MEU ORÇAMENTO'}
           </Button>
         </form>
       </Card>
@@ -129,7 +134,7 @@ export default function Results() {
         *Esta é uma estimativa. A economia real pode variar.
       </p>
 
-      <Button variant="link" onClick={reset} className="h-auto p-0 mt-1 text-xs">Fazer nova simulação</Button>
+      <Button variant="link" onClick={reset} className="h-auto p-0 mt-1 text-xs" disabled={isSubmitting}>Fazer nova simulação</Button>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
@@ -24,6 +25,17 @@ const initialData: Partial<CalculatorData> = {
   casa_ou_empresa: 'Minha Casa',
 };
 
+const postDataToParent = (data: any) => {
+    // Garante que o código só será executado no lado do cliente
+    if (typeof window !== 'undefined') {
+        window.parent.postMessage({
+            type: 'ARKAN_SOLAR_CALC_UPDATE',
+            payload: data
+        }, '*'); // Use um targetOrigin mais específico em produção se possível
+        console.log("Data posted to parent:", data);
+    }
+}
+
 export function CalculatorProvider({ children }: { children: React.ReactNode }) {
   const [step, setStep] = useState(1);
   const [data, setData] = useState<Partial<CalculatorData>>(initialData);
@@ -46,12 +58,15 @@ export function CalculatorProvider({ children }: { children: React.ReactNode }) 
   }, [searchParams]);
 
   const updateData = (update: Partial<CalculatorData>) => {
-    setData((prev) => ({ ...prev, ...update }));
+    const newData = { ...data, ...update };
+    setData(newData);
+    postDataToParent(newData); // Envia os dados atualizados a cada mudança
   };
   
   const reset = () => {
       setData(initialData);
       setStep(1);
+      postDataToParent(initialData); // Reseta os dados no GHL também
   }
 
   const results = useMemo(() => {

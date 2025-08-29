@@ -4,10 +4,14 @@ import { Suspense } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 function LoadingFallback() {
-    return <Skeleton className="w-full max-w-2xl h-[600px] rounded-2xl" />
+    return (
+      <div className="flex min-h-screen w-full flex-col items-center justify-center p-4">
+        <Skeleton className="w-full max-w-2xl h-[600px] rounded-2xl" />
+      </div>
+    )
 }
 
-function EmbedPageContent() {
+function PageContent() {
     return (
         <CalculatorProvider>
             <main className="flex min-h-screen w-full flex-col items-center justify-center p-4">
@@ -17,12 +21,10 @@ function EmbedPageContent() {
     )
 }
 
-export default function EmbedPage() {
+export default function CalculatorPage() {
   return (
-    <main className="flex min-h-screen w-full flex-col items-center justify-center p-4">
-        <Suspense fallback={<LoadingFallback />}>
-          <EmbedPageContent />
-        </Suspense>
-    </main>
+    <Suspense fallback={<LoadingFallback />}>
+      <PageContent />
+    </Suspense>
   );
 }
