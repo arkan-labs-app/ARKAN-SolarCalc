@@ -1,0 +1,7 @@
+{
+  "tarifa_rs_kwh": 1.2,
+  "kwh_por_kwp_mes": 120,
+  "custo_por_kwp_rs": 5000,
+  "pipeline_pre_venda": "Pré-venda",
+  "tag_simulacao": "Simulação ROI"
+}

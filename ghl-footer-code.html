@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GHL Landing Page Footer Code</title>
+</head>
+<body>
+
+    <!-- 
+      INSTRUÇÕES:
+      1. COPIE O CONTEÚDO DA TAG <script> ABAIXO.
+      2. COLE NO EDITOR DA SUA LANDING PAGE NO GOHIGHLEVEL, NA SEÇÃO DE "FOOTER CODE".
+      3. CERTIFIQUE-SE DE TER UM "CUSTOM VALUE" CHAMADO `ARKAN_WEBHOOK_URL` NO SEU GHL COM A URL DO SEU WEBHOOK.
+    -->
+
+    <script>
+    (function() {
+        /**
+         * ==================================================================================
+         * ARKAN SOLAR CALC <> GOHIGHLEVEL - BRIDGE SCRIPT
+         * ==================================================================================
+         * Este script gerencia a comunicação entre o iframe da calculadora de ROI
+         * e a Landing Page do GoHighLevel.
+         *
+         * Funcionalidades:
+         * 1. Redimensionamento automático do iframe para evitar barras de rolagem.
+         * 2. Recebimento de dados do formulário da calculadora via `postMessage`.
+         * 3. Envio dos dados para um Inbound Webhook do GHL para iniciar automações.
+         * 4. Exposição de um `GHL_WEBHOOK_PROXY` para compatibilidade com múltiplos navegadores.
+         */
+
+        // ============== CONFIGURAÇÃO - AJUSTE ESTES VALORES ==============
+
+        /**
+         * @description URL do Inbound Webhook do seu workflow no GoHighLevel.
+         *              Este valor é preenchido dinamicamente por um "Custom Value" do GHL.
+         * @example "{{custom_values.ARKAN_WEBHOOK_URL}}"
+         */
+        const GHL_INBOUND_WEBHOOK_URL = "{{custom_values.ARKAN_WEBHOOK_URL}}";
+
+        /**
+         * @description O ID do elemento iframe da sua calculadora na Landing Page.
+         *              O padrão geralmente é 'iframe-XXXXX'. Inspecione sua LP para confirmar.
+         */
+        const CALCULATOR_IFRAME_ID = "iframe-interactive-calculator"; // << CONFIRME ESTE ID
+
+        /**
+         * @description A origem da aplicação da calculadora para validação de segurança.
+         *              Deve corresponder ao domínio onde a sua calculadora está hospedada.
+         */
+        const CALCULATOR_ORIGIN = "https://rad-paletas-557f06.netlify.app";
+        
+        // ======================= FIM DA CONFIGURAÇÃO =======================
+
+
+        // --- Lógica de Envio para o Webhook ---
+        
+        async function sendToGhlWebhook(payload) {
+            if (!GHL_INBOUND_WEBHOOK_URL || !GHL_INBOUND_WEBHOOK_URL.includes("hooks")) {
+                console.warn("ARKAN_CALC_BRIDGE: GHL_INBOUND_WEBHOOK_URL não configurada ou inválida. Verifique o Custom Value 'ARKAN_WEBHOOK_URL'.");
+                return;
+            }
+
+            try {
+                // O GHL espera o payload diretamente no corpo da requisição.
+                const response = await fetch(GHL_INBOUND_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    console.log("ARKAN_CALC_BRIDGE: Payload enviado com sucesso para o GHL.", payload);
+                } else {
+                    console.error("ARKAN_CALC_BRIDGE: Falha ao enviar payload para o GHL.", response.status, response.statusText);
+                }
+            } catch (error) {
+                console.error("ARKAN_CALC_BRIDGE: Erro de rede ao tentar enviar para o GHL.", error);
+            }
+        }
+        
+        // --- Exposição do Proxy para o iframe ---
+
+        // A função GHL_WEBHOOK_PROXY é exposta no `window` para ser chamada diretamente 
+        // pelo script `bridge.js` dentro do iframe. Isso serve como um método de envio 
+        // alternativo caso a comunicação postMessage seja bloqueada por algum motivo.
+        if (typeof window.GHL_WEBHOOK_PROXY !== 'function') {
+            console.log("ARKAN_CALC_BRIDGE: Expondo GHL_WEBHOOK_PROXY.");
+            window.GHL_WEBHOOK_PROXY = function(payload) {
+                console.log("ARKAN_CALC_BRIDGE: GHL_WEBHOOK_PROXY chamado.", payload);
+                sendToGhlWebhook(payload);
+            }
+        }
+
+        // --- Listener de Eventos do Iframe ---
+
+        window.addEventListener("message", function(event) {
+            
+            // Validação de segurança: ignora mensagens que não sejam da calculadora.
+            if (event.origin !== CALCULATOR_ORIGIN) {
+                return;
+            }
+
+            // Garante que o evento tem um tipo de payload conhecido.
+            const data = event.data || {};
+            if (!data.type || !data.type.startsWith("ARKAN_SOLAR_CALC_")) {
+                return;
+            }
+
+            console.log(`ARKAN_CALC_BRIDGE: Recebido evento do tipo "${data.type}"`, data);
+
+            switch (data.type) {
+                
+                // Redimensiona a altura do iframe dinamicamente.
+                case "ARKAN_SOLAR_CALC_RESIZE":
+                    const iframe = document.getElementById(CALCULATOR_IFRAME_ID);
+                    if (iframe && data.height) {
+                        iframe.style.height = `${data.height}px`;
+                    }
+                    break;
+
+                // Recebe os dados finais e envia para o webhook.
+                case "ARKAN_SOLAR_CALC_SUBMIT":
+                    if (data.payload) {
+                        sendToGhlWebhook(data.payload);
+                    }
+                    break;
+            }
+        });
+
+        console.log("ARKAN_CALC_BRIDGE: Script do footer carregado e pronto.");
+
+    })();
+    </script>
+
+</body>
+</html>

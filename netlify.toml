@@ -1,0 +1,17 @@
+# Netlify configuration file for a Next.js project.
+
+# This section defines the build settings for your site.
+[build]
+  # This command builds the Next.js application. `npm ci` is used for faster,
+  # more reliable installs in CI/CD environments.
+  command = "npm run build"
+
+  # The publish directory for a Next.js site when using the Netlify plugin
+  # is always .next. The plugin handles serving the content correctly.
+  publish = ".next"
+
+# The Next.js Runtime on Netlify automatically handles server-side
+# rendering, API routes, asset serving, and more. This plugin is essential
+# for deploying modern Next.js apps on Netlify.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
