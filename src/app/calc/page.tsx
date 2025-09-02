@@ -3,6 +3,7 @@
 import { CalculatorProvider } from '@/components/calculator/CalculatorProvider';
 import { Calculator } from '@/components/calculator/Calculator';
 import React, { Suspense } from 'react';
+import Script from 'next/script';
 import { useIframeHeight } from '@/lib/useIframeHeight';
 
 function PageContent() {
@@ -16,6 +17,7 @@ function PageContent() {
             <style jsx global>{`
               html, body { margin: 0; padding: 0; background: transparent; }
             `}</style>
+            <Script src="/js/bridge.js" type="module" strategy="lazyOnload" />
             <CalculatorProvider>
                 <main className="w-full mx-auto">
                     <Calculator />

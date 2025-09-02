@@ -17,12 +17,12 @@ export default function StepBill() {
           value={[data.valor_da_conta_de_luz || 300]}
           onValueChange={(value) => updateData({ valor_da_conta_de_luz: value[0] })}
           min={300}
-          max={2500}
+          max={5000}
           step={50}
         />
         <div className="flex justify-between text-sm text-muted-foreground mt-2">
           <span>{formatCurrency(300)}</span>
-          <span>{formatCurrency(2500)}</span>
+          <span>{formatCurrency(5000)}</span>
         </div>
       </div>
       <div className="flex justify-center gap-4 w-full mt-4">

@@ -1,216 +1,155 @@
+// /public/js/bridge.js
+const PARENT_ORIGIN = "https://funil.solar.arkanlabs.com.br";
 
-import { SELECTORS } from './selectors.js';
+const KEY="arkan_calc_payload";
+const getState=()=>JSON.parse(localStorage.getItem(KEY)||"{}");
+const setState=(p)=>localStorage.setItem(KEY, JSON.stringify({ ...getState(), ...p }));
 
-// ================================================================================================
-// CONFIGURAÇÃO
-// ================================================================================================
-// Domínio da página pai autorizada a receber mensagens. Altere para o seu domínio de produção.
-const PARENT_ORIGIN = 'https://funil.solar.arkanlabs.com.br';
-// Chave usada para salvar o estado no localStorage.
-const STORAGE_KEY = 'arkan_calc_payload';
+// --- Utils ---
+function toE164(t){ const d=String(t||"").replace(/\D/g,""); return d? (d.startsWith("55")? "+"+d : "+55"+d) : ""; }
+function toNumber(x){ if(x==null||x==="") return undefined; return Number(String(x).replace(/[^\d,.-]/g,"").replace(/\.(?=\d{3})/g,"").replace(",",".")); }
+function round2(n){ return n==null? undefined : Math.round(n*100)/100; }
+function round0(n){ return n==null? undefined : Math.round(n); }
 
+function qs(sel){ return document.querySelector(sel); }
+function val(sel){ const el=qs(sel); return el? (el.value ?? el.textContent ?? "").trim() : ""; }
+function click(sel, handler) { const el = qs(sel); if (el) el.addEventListener("click", handler); }
 
-// ================================================================================================
-// HELPERS - Funções Utilitárias
-// ================================================================================================
+// --- Data Collection ---
 
-/**
- * Funções de persistência de dados no localStorage.
- */
-const stateManager = {
-  get: () => JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'),
-  set: (newData) => localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...stateManager.get(), ...newData })),
-  clear: () => localStorage.removeItem(STORAGE_KEY),
-};
-
-/**
- * Converte um número de telefone brasileiro para o formato internacional E.164.
- * @param {string} brPhone - Ex: '(11) 98888-7777'
- * @returns {string} - Ex: '+5511988887777'
- */
-function toE164(brPhone) {
-  const digitsOnly = String(brPhone || '').replace(/\D/g, '');
-  if (!digitsOnly || digitsOnly.length < 10) return '';
-  return digitsOnly.length === 11 || digitsOnly.length === 10 ? `+55${digitsOnly}` : '';
+function collectStepType(value) {
+    const map = { 'Minha Casa': 'Residencial', 'Minha Empresa': 'Comercial' };
+    setState({ casa_ou_empresa: map[value] || value });
 }
 
-/**
- * Extrai um valor numérico de uma string (ex: "R$ 1.234,56" -> 1234.56).
- * @param {string | null} value - A string a ser convertida.
- * @returns {number | undefined} - O número convertido ou undefined.
- */
-function getNumber(value) {
-  if (value === '' || value == null) return undefined;
-  const cleaned = String(value).replace(/[^\d.,-]/g, '').replace(/\./g, '').replace(',', '.');
-  const num = parseFloat(cleaned);
-  return isNaN(num) ? undefined : num;
+function collectStepBill() {
+    setState({ valor_da_conta_de_luz: toNumber(val('.text-3xl.font-bold.text-primary')) });
 }
 
-/**
- * Busca um elemento no DOM de forma segura.
- * @param {string} selector - O seletor CSS.
- * @returns {HTMLElement | null}
- */
-const $ = (selector) => document.querySelector(selector);
-
-
-// ================================================================================================
-// LÓGICA PRINCIPAL - Captura e Envio de Dados
-// ================================================================================================
-
-/**
- * Coleta dados dos campos da etapa atual e salva no estado.
- */
-function collectAndSaveStepData() {
-    const data = {};
-    const fields = SELECTORS.fields;
-
-    // A lógica para extrair os valores depende de como eles estão no DOM.
-    // Adapte conforme necessário (ex: .innerText, .value, data-attributes).
-    
-    if ($(fields.cidade)) data.cidade = $(fields.cidade).value;
-    if ($(fields.bairro)) data.bairro = $(fields.bairro).value;
-    if ($(fields.cep)) data.cep = $(fields.cep).value;
-    if ($(fields.nome)) data.nome = $(fields.nome).value;
-    if ($(fields.whatsapp)) data.whatsapp = $(fields.whatsapp).value;
-
-    const valorContaEl = $(fields.valor_da_conta_de_luz);
-    if(valorContaEl) data.valor_da_conta_de_luz = getNumber(valorContaEl.innerText);
-
-    const prazoEl = $(fields.prazo_para_instalacao);
-    if(prazoEl) data.prazo_para_instalacao = prazoEl.value;
-    
-    // Para seleções baseadas em cliques, o valor é capturado no listener do clique.
-    
-    console.log('Saving step data:', data);
-    stateManager.set(data);
-}
-
-
-/**
- * Constrói o payload final a partir do estado salvo e dos resultados na UI.
- * @returns {object | null} - O payload completo ou null se dados essenciais faltarem.
- */
-function buildFinalPayload() {
-    const state = stateManager.get();
-    const results = SELECTORS.results;
-
-    const economiaEl = $(results.economia_mensal_rs);
-    const kwpEl = $(results.sistema_kwp);
-    const custoEl = $(results.custo_estimado_rs);
-
-    const finalPayload = {
-      // Identificação
-      whatsapp: toE164(state.whatsapp),
-      nome: state.nome || '',
-      
-      // Perfil
-      cidade: state.cidade || '',
-      cep: state.cep || '',
-      bairro: state.bairro || '',
-      casa_ou_empresa: state.casa_ou_empresa || '',
-      valor_da_conta_de_luz: state.valor_da_conta_de_luz,
-      prazo_para_instalacao: state.prazo_para_instalacao || '',
-      tipo_de_telha: state.tipo_de_telha || '',
-
-      // Resultados
-      economia_mensal_rs: economiaEl ? getNumber(economiaEl.innerText) : undefined,
-      sistema_kwp: kwpEl ? getNumber(kwpEl.innerText) : undefined,
-      custo_estimado_rs: custoEl ? getNumber(custoEl.innerText) : undefined,
-    };
-    
-    // Validação Mínima
-    if (!finalPayload.whatsapp) {
-        alert('Por favor, preencha um número de WhatsApp válido.');
-        return null;
-    }
-
-    return finalPayload;
-}
-
-
-/**
- * Envia os dados para a página pai via postMessage.
- */
-function submitData() {
-    const payload = buildFinalPayload();
-    
-    if (payload) {
-        console.log('Submitting final payload to parent:', payload);
-        window.parent.postMessage(
-          { type: 'ARKAN_SOLAR_CALC_SUBMIT', payload },
-          PARENT_ORIGIN
-        );
-        // Limpa o estado após o envio bem-sucedido
-        stateManager.clear();
+function collectStepTimeline() {
+    // This value is tricky as it's inside a label with a sibling radio.
+    // The component structure is complex, so we grab the checked radio's ID, which is the value.
+    const checkedRadio = qs('input[type="radio"][name="r1"]:checked');
+    if (checkedRadio) {
+        setState({ prazo_para_instalacao: checkedRadio.id });
     }
 }
 
-
-// ================================================================================================
-// INSTRUMENTAÇÃO - Anexa os listeners aos elementos da UI
-// ================================================================================================
-
-function instrument() {
-    console.log('Bridge Instrumenting...');
-
-    // Listener para o botão final de submissão
-    const finalButton = $(SELECTORS.navigation.finalSubmitButton);
-    if (finalButton) {
-        finalButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            collectAndSaveStepData(); // Garante que os últimos campos (nome/whats) sejam salvos
-            submitData();
-        });
-    } else {
-        console.warn('Final submit button not found with selector:', SELECTORS.navigation.finalSubmitButton);
+function collectStepRoof() {
+    // The selected card has a specific class `ring-2`. We find it and get the text.
+    const selectedCard = qs('.ring-2.ring-primary.border-primary p');
+    if (selectedCard) {
+        setState({ tipo_de_telha: selectedCard.textContent.trim() });
     }
+}
 
-    // Listeners para salvar dados ao avançar de etapa
-    Object.values(SELECTORS.navigation.nextButtons).forEach(selector => {
-        document.querySelectorAll(selector).forEach(button => {
-            button.addEventListener('click', collectAndSaveStepData);
-        });
+function collectStepLocationAndResults() {
+    setState({
+        cidade: val("#cidade"),
+        bairro: val("#bairro"),
+        cep: val("#cep"),
     });
 
-    // Listeners especiais para elementos que não são inputs diretos
-    const { residencial, comercial } = SELECTORS.fields.casa_ou_empresa;
-    if ($(residencial)) $(residencial).addEventListener('click', () => stateManager.set({ casa_ou_empresa: 'Residencial' }));
-    if ($(comercial)) $(comercial).addEventListener('click', () => stateManager.set({ casa_ou_empresa: 'Comercial' }));
+    // Results are calculated, but let's grab them from the final screen
+    // This is safer in case calculation logic changes.
+    const economia = val(".text-3xl.md\\:text-4xl.font-bold.text-accent");
+    const geracao = val("div.grid.grid-cols-3 > div:nth-child(1) > div > p.font-semibold");
+    const economia25anos = val("div.grid.grid-cols-3 > div:nth-child(2) > div > p.font-semibold");
+    const potencia = val("div.grid.grid_cols-3 > div:nth-child(3) > div > p.font-semibold");
+    
+    // We can't get all payload fields from the DOM, but we can get some.
+    // The most important ones are the results.
+    setState({
+        economia_mensal_rs: round2(toNumber(economia)),
+        sistema_kwp: round2(toNumber(potencia)),
+        // Custo estimado não está visível no DOM, teremos que confiar no cálculo anterior
+        // Se precisar que ele seja lido da tela, adicione-o em algum lugar visível.
+    });
+}
 
-    const telhaSelector = SELECTORS.fields.tipo_de_telha;
-    if(telhaSelector) {
-        // Assume que o clique adiciona uma classe ou atributo que podemos observar
-        // ou que o texto do card clicado pode ser capturado.
-        document.body.addEventListener('click', (e) => {
-            const card = e.target.closest(telhaSelector);
-            if (card) {
-                // Exemplo: buscando o texto dentro do card. Adapte se for outra lógica.
-                const textEl = card.querySelector('p');
-                if (textEl) {
-                    stateManager.set({ tipo_de_telha: textEl.innerText.trim() });
-                }
-            }
-        });
+
+function submitFinal() {
+    const s = getState();
+    const nome = val("#nome");
+    const whatsapp = toE164(val("#whatsapp"));
+
+    if (!whatsapp || whatsapp.length < 12) { // ex: +5511987654321
+        console.error("GHL Bridge: Invalid WhatsApp number. Aborting submission.");
+        alert("Por favor, insira um número de WhatsApp válido com DDD.");
+        return;
     }
 
-    // Auto-resizing do Iframe
+    const payload = {
+        whatsapp,
+        nome: nome,
+        cidade: s.cidade,
+        cep: s.cep,
+        casa_ou_empresa: s.casa_ou_empresa,
+        valor_da_conta_de_luz: s.valor_da_conta_de_luz,
+        prazo_para_instalacao: s.prazo_para_instalacao,
+        tipo_de_telha: s.tipo_de_telha,
+        bairro: s.bairro,
+        economia_mensal_rs: s.economia_mensal_rs,
+        sistema_kwp: s.sistema_kwp,
+        custo_estimado_rs: s.custo_estimado_rs // This is not on screen, comes from state
+    };
+    
+    console.log("GHL Bridge: Submitting payload...", payload);
+
     try {
-        new ResizeObserver(() => {
-            const h = document.documentElement.scrollHeight;
-            window.parent.postMessage({ type: 'ARKAN_SOLAR_CALC_RESIZE', height: h }, PARENT_ORIGIN);
-        }).observe($(SELECTORS.mainContainer) || document.body);
+        const h = document.documentElement.scrollHeight;
+        window.parent.postMessage({ type: "ARKAN_SOLAR_CALC_RESIZE", height: h }, PARENT_ORIGIN);
     } catch(e) {
-        console.warn("ResizeObserver not supported or failed to initialize.", e);
+        console.warn("GHL Bridge: Could not send resize message.", e);
     }
 
-    console.log('Bridge Instrumented Successfully.');
+    window.parent.postMessage({ type: "ARKAN_SOLAR_CALC_SUBMIT", payload }, PARENT_ORIGIN);
+
+    try {
+        if (typeof window.top?.GHL_WEBHOOK_PROXY === "function") {
+            window.top.GHL_WEBHOOK_PROXY(payload);
+            console.log("GHL Bridge: GHL_WEBHOOK_PROXY called.");
+        }
+    } catch(e) {
+        console.warn("GHL Bridge: Could not call GHL_WEBHOOK_PROXY.", e);
+    }
+
+    localStorage.removeItem(KEY);
 }
 
+// ====== BINDINGS ======
+function bind() {
+    // Step 1: Type selection (auto-advances)
+    click('div.sm\\:w-48:nth-child(1)', () => collectStepType('Minha Casa'));
+    click('div.sm\\:w-48:nth-child(2)', () => collectStepType('Minha Empresa'));
 
-// Inicia a instrumentação quando o DOM estiver pronto.
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', instrument);
-} else {
-    instrument();
+    // Step 2 -> 3
+    click('div.flex.justify-center.gap-4.w-full.mt-4 > button:nth-child(2)', collectStepBill);
+
+    // Step 3 -> 4
+    click('div.flex.justify-center.gap-4.w-full.mt-2 > button:nth-child(2)', collectStepTimeline);
+
+    // Step 4 -> 5
+    click('button.font-bold', collectStepRoof);
+
+    // Step 5 -> Results
+    click('button[disabled=false].bg-gradient-to-r', collectStepLocationAndResults);
+
+    // Final Submit
+    click('button[type="submit"]', submitFinal);
+
+    // Auto-resize listener
+    try {
+        const ro = new ResizeObserver(() => {
+          const h = document.documentElement.scrollHeight;
+          window.parent.postMessage({ type: "ARKAN_SOLAR_CALC_RESIZE", height: h }, PARENT_ORIGIN);
+        });
+        ro.observe(document.body);
+    } catch(e) {
+      console.warn("GHL Bridge: ResizeObserver not supported or failed to init.", e);
+    }
 }
+
+// Clear state on first load to prevent stale data
+localStorage.removeItem(KEY);
+document.addEventListener("DOMContentLoaded", bind);

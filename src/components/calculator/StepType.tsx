@@ -3,7 +3,6 @@ import { Home, Building } from 'lucide-react';
 import { useCalculator } from './CalculatorProvider';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { Button } from '../ui/button';
 
 export default function StepType() {
   const { data, updateData, setStep } = useCalculator();

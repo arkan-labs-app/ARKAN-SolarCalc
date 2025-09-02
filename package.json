@@ -10,7 +10,10 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "zip:source": "node scripts/pack-source.mjs"
+    "prezip:source": "node -e \"require('fs').mkdirSync('dist',{recursive:true})\"",
+    "zip:source": "node scripts/zip-source.js --mode=full",
+    "zip:lite": "node scripts/zip-source.js --mode=lite",
+    "zip:min": "node scripts/zip-source.js --mode=min"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.14.1",
@@ -60,6 +63,7 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "archiver": "^7.0.1",
     "genkit-cli": "^1.14.1",
     "postcss": "^8",
     "tar": "^7.1.0",
