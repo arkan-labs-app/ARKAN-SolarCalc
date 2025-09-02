@@ -1,12 +1,16 @@
+
 import { InternalDashboard } from "@/components/internal/InternalDashboard";
 import { CalculatorProvider } from "@/components/calculator/CalculatorProvider";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CalculatorParamsLoader } from "@/components/calculator/CalculatorParamsLoader";
 
 function InternalPageContent() {
     return (
         <CalculatorProvider>
-            <InternalDashboard />
+            <CalculatorParamsLoader>
+                <InternalDashboard />
+            </CalculatorParamsLoader>
         </CalculatorProvider>
     )
 }

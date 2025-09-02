@@ -2,7 +2,6 @@
 "use client";
 
 import React, { createContext, useContext, useState, useMemo, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
 import type { CalculatorData, CalculationParams, CalculationResults } from '@/types';
 import { calculateROI } from '@/lib/calculator';
 import defaults from '@/config/defaults.json';
@@ -14,7 +13,7 @@ type CalculatorContextType = {
   updateData: (update: Partial<CalculatorData>) => void;
   results: CalculationResults | null;
   params: CalculationParams;
-  setParams: (params: CalculationParams) => void;
+  setParams: (params: CalculationParams | ((prev: CalculationParams) => CalculationParams)) => void;
   reset: () => void;
 };
 
@@ -41,8 +40,6 @@ export function CalculatorProvider({ children }: { children: React.ReactNode }) 
   const [data, setData] = useState<Partial<CalculatorData>>(initialData);
   const [params, setParams] = useState<CalculationParams>(defaults);
   
-  const searchParams = useSearchParams();
-
   const setStep = useCallback((newStep: number) => {
     _setStep(newStep);
     // Dispara a função global para recalcular a altura do iframe
@@ -51,20 +48,6 @@ export function CalculatorProvider({ children }: { children: React.ReactNode }) 
       setTimeout(() => (window as any).sendIframeHeight(), 50);
     }
   }, []);
-
-  useEffect(() => {
-    const tarifa = searchParams.get('tarifa');
-    const kwhkwp = searchParams.get('kwhkwp');
-    const custo = searchParams.get('custo');
-    
-    if (tarifa || kwhkwp || custo) {
-        setParams(prev => ({
-            tarifa_rs_kwh: tarifa ? Number(tarifa) : prev.tarifa_rs_kwh,
-            kwh_por_kwp_mes: kwhkwp ? Number(kwhkwp) : prev.kwh_por_kwp_mes,
-            custo_por_kwp_rs: custo ? Number(custo) : prev.custo_por_kwp_rs,
-        }));
-    }
-  }, [searchParams]);
 
   const updateData = (update: Partial<CalculatorData>) => {
     const newData = { ...data, ...update };
