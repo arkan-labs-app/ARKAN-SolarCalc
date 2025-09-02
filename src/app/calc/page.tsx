@@ -1,41 +1,32 @@
 
 "use client";
-import { CalculatorProvider } from '@/components/calculator/CalculatorProvider';
-import { Calculator } from '@/components/calculator/Calculator';
 import React, { Suspense } from 'react';
-import Script from 'next/script';
-import { useIframeHeight } from '@/lib/useIframeHeight';
-import { CalculatorParamsLoader } from '@/components/calculator/CalculatorParamsLoader';
+import { Skeleton } from '@/components/ui/skeleton';
+import { CalculatorEmbed } from '@/components/calculator/CalculatorEmbed';
 
-function PageContent() {
-    // This component is designed to be embedded in an iframe.
-    // It has a transparent background to blend with the parent page.
-    useIframeHeight("*");
-
+function LoadingFallback() {
     return (
-        <>
-            {/* garantir canvas limpo no embed */}
-            <style jsx global>{`
-              html, body { margin: 0; padding: 0; background: transparent; }
-            `}</style>
-            <Script src="/js/bridge.js" type="module" strategy="lazyOnload" />
-            <CalculatorProvider>
-                <CalculatorParamsLoader>
-                    <main className="w-full mx-auto">
-                        <Calculator />
-                    </main>
-                </CalculatorParamsLoader>
-            </CalculatorProvider>
-        </>
-    )
+        <div className="flex items-center justify-center min-h-screen">
+            <div className="w-full max-w-[520px] p-4 md:p-6 space-y-4">
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-8 w-1/2 mx-auto" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-40 w-full" />
+                <div className="flex justify-center gap-4 pt-4">
+                    <Skeleton className="h-10 w-24" />
+                    <Skeleton className="h-10 w-24" />
+                </div>
+            </div>
+        </div>
+    );
 }
 
 export default function CalculatorPage() {
-  // O Suspense é crucial aqui para garantir que os componentes Client
-  // que usam hooks como `useSearchParams` não causem erros de hidratação.
+  // O Suspense é crucial para componentes que usam hooks como `useSearchParams`
+  // para evitar erros de hidratação durante a renderização no servidor (SSR).
   return (
-    <Suspense fallback={null}>
-      <PageContent />
+    <Suspense fallback={<LoadingFallback />}>
+      <CalculatorEmbed />
     </Suspense>
   );
 }
