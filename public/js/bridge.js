@@ -1,155 +1,216 @@
-// /public/js/bridge.js
+
+/**
+ * ==================================================================================
+ * ARKAN SOLAR CALC <> GOHIGHLEVEL - BRIDGE SCRIPT (IFRAME SIDE)
+ * ==================================================================================
+ * Este script roda DENTRO do iframe da calculadora.
+ *
+ * Funcionalidades:
+ * 1. Captura dados dos formulários da calculadora em cada etapa.
+ * 2. Persiste os dados no localStorage para não perdê-los entre os passos.
+ * 3. Monta um payload final com nomes de campo compatíveis com o GHL.
+ * 4. Envia o payload final para a página pai (Landing Page) via `postMessage`.
+ * 5. Tenta chamar um proxy `GHL_WEBHOOK_PROXY` na página pai para redundância.
+ * 6. Envia mensagens de redimensionamento para o iframe não ter scrollbars.
+ */
+
+// ============== CONFIGURAÇÃO ==============
+
+/**
+ * @description A origem (domínio) da Landing Page do GoHighLevel onde o iframe está embutido.
+ *              Isso é crucial para a segurança do `postMessage`.
+ */
 const PARENT_ORIGIN = "https://funil.solar.arkanlabs.com.br";
 
-const KEY="arkan_calc_payload";
-const getState=()=>JSON.parse(localStorage.getItem(KEY)||"{}");
-const setState=(p)=>localStorage.setItem(KEY, JSON.stringify({ ...getState(), ...p }));
+// ==========================================
 
-// --- Utils ---
-function toE164(t){ const d=String(t||"").replace(/\D/g,""); return d? (d.startsWith("55")? "+"+d : "+55"+d) : ""; }
-function toNumber(x){ if(x==null||x==="") return undefined; return Number(String(x).replace(/[^\d,.-]/g,"").replace(/\.(?=\d{3})/g,"").replace(",",".")); }
-function round2(n){ return n==null? undefined : Math.round(n*100)/100; }
-function round0(n){ return n==null? undefined : Math.round(n); }
 
-function qs(sel){ return document.querySelector(sel); }
-function val(sel){ const el=qs(sel); return el? (el.value ?? el.textContent ?? "").trim() : ""; }
-function click(sel, handler) { const el = qs(sel); if (el) el.addEventListener("click", handler); }
+// --- Utilitários ---
 
-// --- Data Collection ---
+const KEY = "arkan_calc_payload";
+const getState = () => JSON.parse(localStorage.getItem(KEY) || "{}");
+const setState = (patch) => localStorage.setItem(KEY, JSON.stringify({ ...getState(), ...patch }));
 
-function collectStepType(value) {
-    const map = { 'Minha Casa': 'Residencial', 'Minha Empresa': 'Comercial' };
-    setState({ casa_ou_empresa: map[value] || value });
+const toE164 = (brPhone) => {
+    const d = String(brPhone || "").replace(/\D/g, "");
+    if (!d) return "";
+    return d.startsWith("55") ? `+${d}` : `+55${d}`;
+};
+
+const toNumber = (x) => {
+    if (x == null || x === "") return undefined;
+    const s = String(x).replace(/[^\d,.-]/g, "").replace(/\.(?=\d{3})/g, "").replace(",", ".");
+    return Number(s);
+};
+
+const round = (num, places) => {
+    if (num == null) return undefined;
+    const factor = Math.pow(10, places);
+    return Math.round(num * factor) / factor;
 }
 
-function collectStepBill() {
-    setState({ valor_da_conta_de_luz: toNumber(val('.text-3xl.font-bold.text-primary')) });
-}
+const qs = (selector) => document.querySelector(selector);
+const qsa = (selector) => document.querySelectorAll(selector);
+const val = (el) => (el ? (el.value ?? el.textContent ?? "").trim() : "");
+const on = (el, event, handler) => el?.addEventListener(event, handler);
 
-function collectStepTimeline() {
-    // This value is tricky as it's inside a label with a sibling radio.
-    // The component structure is complex, so we grab the checked radio's ID, which is the value.
-    const checkedRadio = qs('input[type="radio"][name="r1"]:checked');
-    if (checkedRadio) {
-        setState({ prazo_para_instalacao: checkedRadio.id });
+
+// --- Lógica de Coleta de Dados ---
+
+// Mapeia os botões "Continuar" para as funções que coletam os dados da etapa atual.
+// A chave é o texto do botão de continuar/avançar.
+const stepCollectors = {
+    "Continuar →": () => {
+        // Step 1: Tipo (Casa/Empresa) é pego pelo clique direto
+        // Step 2: Conta de luz
+        const billValue = val(qs(".text-3xl.font-bold.text-primary"));
+        setState({ valor_da_conta_de_luz: toNumber(billValue) });
+
+        // Step 3: Prazo de instalação
+        const selectedTimeline = qs('input[name="radix-group-0"]:checked');
+        if (selectedTimeline) {
+            setState({ prazo_para_instalacao: val(selectedTimeline.nextElementSibling) });
+        }
+
+        // Step 4: Tipo de telha
+        const selectedCard = qs('.ring-2.ring-primary');
+        if(selectedCard) {
+           const roofType = val(selectedCard.querySelector('p'));
+           setState({ tipo_de_telha: roofType });
+        }
+    },
+    "Ver Minha Economia →": () => {
+        // Step 5: Localização
+        setState({
+            cidade: val(qs("#cidade")),
+            bairro: val(qs("#bairro")),
+            cep: val(qs("#cep")),
+        });
     }
-}
-
-function collectStepRoof() {
-    // The selected card has a specific class `ring-2`. We find it and get the text.
-    const selectedCard = qs('.ring-2.ring-primary.border-primary p');
-    if (selectedCard) {
-        setState({ tipo_de_telha: selectedCard.textContent.trim() });
-    }
-}
-
-function collectStepLocationAndResults() {
-    setState({
-        cidade: val("#cidade"),
-        bairro: val("#bairro"),
-        cep: val("#cep"),
-    });
-
-    // Results are calculated, but let's grab them from the final screen
-    // This is safer in case calculation logic changes.
-    const economia = val(".text-3xl.md\\:text-4xl.font-bold.text-accent");
-    const geracao = val("div.grid.grid-cols-3 > div:nth-child(1) > div > p.font-semibold");
-    const economia25anos = val("div.grid.grid-cols-3 > div:nth-child(2) > div > p.font-semibold");
-    const potencia = val("div.grid.grid_cols-3 > div:nth-child(3) > div > p.font-semibold");
-    
-    // We can't get all payload fields from the DOM, but we can get some.
-    // The most important ones are the results.
-    setState({
-        economia_mensal_rs: round2(toNumber(economia)),
-        sistema_kwp: round2(toNumber(potencia)),
-        // Custo estimado não está visível no DOM, teremos que confiar no cálculo anterior
-        // Se precisar que ele seja lido da tela, adicione-o em algum lugar visível.
-    });
-}
+};
 
 
-function submitFinal() {
+function collectResultsAndSubmit() {
     const s = getState();
-    const nome = val("#nome");
-    const whatsapp = toE164(val("#whatsapp"));
 
-    if (!whatsapp || whatsapp.length < 12) { // ex: +5511987654321
-        console.error("GHL Bridge: Invalid WhatsApp number. Aborting submission.");
-        alert("Por favor, insira um número de WhatsApp válido com DDD.");
+    // Os resultados finais são exibidos em cards.
+    const economiaEl = qs(".text-accent");
+    const geracaoEl = qsa(".text-center .font-semibold.text-sm")[0];
+    const potenciaEl = qsa(".text-center .font-semibold.text-sm")[2];
+    
+    // O custo é calculado a partir de outros valores
+    const economiaMensal = toNumber(val(economiaEl));
+    const sistemaKwp = toNumber(val(potenciaEl));
+    const geracaoKwh = toNumber(val(geracaoEl));
+
+    // Estimativa do custo (lógica reversa simplificada da calculadora original)
+    // Custo = Payback (meses) * Economia Mensal
+    // Payback (meses) não está na tela, mas podemos inferir um custo aproximado
+    // se tivermos o custo por kwp, que não está presente.
+    // Vamos usar a geração para estimar o custo, assumindo um custo por kwp.
+    // Esta é uma aproximação. A lógica mais precisa está na calculadora.
+    const custoEstimado = s.custo_estimado_rs || (sistemaKwp ? sistemaKwp * 5000 : 0);
+
+
+    const finalState = {
+        ...s,
+        nome: val(qs("#nome")),
+        whatsapp: toE164(val(qs("#whatsapp"))),
+        economia_mensal_rs: round(economiaMensal, 2),
+        sistema_kwp: round(sistemaKwp, 2),
+        custo_estimado_rs: round(custoEstimado, 0)
+    };
+
+    if (!finalState.whatsapp || finalState.whatsapp.length < 12) {
+        console.warn("ARKAN_CALC_BRIDGE: WhatsApp inválido. Envio cancelado.");
+        // A UI já mostra um toast, então não precisamos de um alerta aqui.
         return;
     }
-
+    
     const payload = {
-        whatsapp,
-        nome: nome,
-        cidade: s.cidade,
-        cep: s.cep,
-        casa_ou_empresa: s.casa_ou_empresa,
-        valor_da_conta_de_luz: s.valor_da_conta_de_luz,
-        prazo_para_instalacao: s.prazo_para_instalacao,
-        tipo_de_telha: s.tipo_de_telha,
-        bairro: s.bairro,
-        economia_mensal_rs: s.economia_mensal_rs,
-        sistema_kwp: s.sistema_kwp,
-        custo_estimado_rs: s.custo_estimado_rs // This is not on screen, comes from state
+        whatsapp: finalState.whatsapp,
+        nome: finalState.nome,
+        cidade: finalState.cidade,
+        cep: finalState.cep,
+        casa_ou_empresa: finalState.casa_ou_empresa === 'Minha Casa' ? 'Residencial' : 'Comercial',
+        valor_da_conta_de_luz: finalState.valor_da_conta_de_luz,
+        prazo_para_instalacao: finalState.prazo_para_instalacao,
+        tipo_de_telha: finalState.tipo_de_telha,
+        bairro: finalState.bairro,
+        economia_mensal_rs: finalState.economia_mensal_rs,
+        sistema_kwp: finalState.sistema_kwp,
+        custo_estimado_rs: finalState.custo_estimado_rs,
     };
     
-    console.log("GHL Bridge: Submitting payload...", payload);
+    console.log("ARKAN_CALC_BRIDGE: Enviando payload final...", payload);
 
     try {
         const h = document.documentElement.scrollHeight;
         window.parent.postMessage({ type: "ARKAN_SOLAR_CALC_RESIZE", height: h }, PARENT_ORIGIN);
-    } catch(e) {
-        console.warn("GHL Bridge: Could not send resize message.", e);
-    }
+    } catch (_) {}
 
     window.parent.postMessage({ type: "ARKAN_SOLAR_CALC_SUBMIT", payload }, PARENT_ORIGIN);
-
+    
     try {
         if (typeof window.top?.GHL_WEBHOOK_PROXY === "function") {
+            console.log("ARKAN_CALC_BRIDGE: Proxy GHL encontrado, chamando...");
             window.top.GHL_WEBHOOK_PROXY(payload);
-            console.log("GHL Bridge: GHL_WEBHOOK_PROXY called.");
+        } else {
+             console.log("ARKAN_CALC_BRIDGE: Proxy GHL não encontrado.");
         }
-    } catch(e) {
-        console.warn("GHL Bridge: Could not call GHL_WEBHOOK_PROXY.", e);
+    } catch (e) {
+        console.error("ARKAN_CALC_BRIDGE: Erro ao chamar proxy GHL.", e);
     }
 
     localStorage.removeItem(KEY);
 }
 
-// ====== BINDINGS ======
+// --- Bindings nos Elementos da UI ---
+
 function bind() {
-    // Step 1: Type selection (auto-advances)
-    click('div.sm\\:w-48:nth-child(1)', () => collectStepType('Minha Casa'));
-    click('div.sm\\:w-48:nth-child(2)', () => collectStepType('Minha Empresa'));
+    // Etapa 1: Seleção de tipo (Casa/Empresa)
+    qsa('.w-full.sm\\:w-48.h-32').forEach(card => {
+        on(card, 'click', () => {
+            const type = val(card.querySelector('p'));
+            setState({ casa_ou_empresa: type });
+        });
+    });
 
-    // Step 2 -> 3
-    click('div.flex.justify-center.gap-4.w-full.mt-4 > button:nth-child(2)', collectStepBill);
+    // Botões de "Continuar" e "Ver Economia" que avançam as etapas
+    qsa('button').forEach(btn => {
+        const btnText = val(btn);
+        const collector = stepCollectors[btnText];
+        if (collector) {
+            on(btn, 'click', collector);
+        }
+    });
+    
+    // Botão final de envio
+    const submitButton = qs('button[type="submit"]');
+    on(submitButton, 'click', (event) => {
+        // A validação de campos obrigatórios já é feita no componente React.
+        // O `handleSubmit` do componente `Results.tsx` previne o default se a validação falhar.
+        // Nós só precisamos coletar os dados e enviar DEPOIS que a validação do React passar.
+        // A forma mais simples é coletar e enviar aqui, pois o clique só completa se o form for válido.
+        setTimeout(collectResultsAndSubmit, 50); // Pequeno delay para garantir que o state do React atualizou
+    });
 
-    // Step 3 -> 4
-    click('div.flex.justify-center.gap-4.w-full.mt-2 > button:nth-child(2)', collectStepTimeline);
 
-    // Step 4 -> 5
-    click('button.font-bold', collectStepRoof);
-
-    // Step 5 -> Results
-    click('button[disabled=false].bg-gradient-to-r', collectStepLocationAndResults);
-
-    // Final Submit
-    click('button[type="submit"]', submitFinal);
-
-    // Auto-resize listener
+    // Enviar altura do iframe em mudanças de layout
     try {
         const ro = new ResizeObserver(() => {
-          const h = document.documentElement.scrollHeight;
-          window.parent.postMessage({ type: "ARKAN_SOLAR_CALC_RESIZE", height: h }, PARENT_ORIGIN);
+            const h = document.documentElement.scrollHeight;
+            window.parent.postMessage({ type: "ARKAN_SOLAR_CALC_RESIZE", height: h }, PARENT_ORIGIN);
         });
         ro.observe(document.body);
-    } catch(e) {
-      console.warn("GHL Bridge: ResizeObserver not supported or failed to init.", e);
-    }
+    } catch (_) {}
+    
+    console.log("ARKAN_CALC_BRIDGE: Listeners prontos.");
 }
 
-// Clear state on first load to prevent stale data
-localStorage.removeItem(KEY);
-document.addEventListener("DOMContentLoaded", bind);
+// Inicia os bindings após o carregamento do DOM.
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bind);
+} else {
+    bind();
+}
