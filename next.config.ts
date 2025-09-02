@@ -2,28 +2,9 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  async headers() {
-    return [
-      {
-        source: '/calculator',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'no-store, max-age=0, must-revalidate',
-          },
-           {
-            key: 'Pragma',
-            value: 'no-cache',
-          },
-          {
-            key: 'Expires',
-            value: '0',
-          },
-        ],
-      },
-    ]
-  },
+  // Nenhuma configuração de `output: 'export'` é necessária aqui.
+  // Isso permite que o deploy padrão seja SSR, enquanto o comando `next export`
+  // pode ser usado manualmente para gerar uma versão estática.
   images: {
     remotePatterns: [
       {

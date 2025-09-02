@@ -3,7 +3,8 @@ const fs = require('fs');
 const archiver = require('archiver');
 const path = require('path');
 
-console.log('Starting to zip the project source...');
+// Este script serve para exportação manual/backup do código-fonte.
+console.log('Iniciando o empacotamento do código-fonte para backup...');
 
 const distDir = path.join(__dirname, '..', 'dist');
 if (!fs.existsSync(distDir)) {
@@ -17,16 +18,8 @@ const archive = archiver('zip', {
 });
 
 output.on('close', function() {
-  console.log(`Zipping complete! ${archive.pointer()} total bytes`);
-  console.log(`Source code has been zipped to: ${outputPath}`);
-});
-
-archive.on('warning', function(err) {
-  if (err.code === 'ENOENT') {
-    console.warn('Warning:', err);
-  } else {
-    throw err;
-  }
+  console.log(`Empacotamento concluído! Total: ${archive.pointer()} bytes`);
+  console.log(`Código-fonte salvo em: ${outputPath}`);
 });
 
 archive.on('error', function(err) {
@@ -35,15 +28,15 @@ archive.on('error', function(err) {
 
 archive.pipe(output);
 
-// Add all files from the project root directory, except for ignored ones.
+// Adiciona todos os arquivos da raiz do projeto, ignorando os desnecessários.
 archive.glob('**/*', {
-  cwd: path.join(__dirname, '..'), // Set current working directory to project root
+  cwd: path.join(__dirname, '..'), // O diretório de trabalho é a raiz do projeto
   ignore: [
-    'node_modules/**', // Ignore node_modules
-    'dist/**',         // Ignore the output directory
-    '.next/**',        // Ignore the Next.js build cache
-    '.git/**',         // Ignore git directory
-    '*.zip'            // Ignore zip files
+    'node_modules/**',
+    'dist/**',
+    '.next/**',
+    '.git/**',
+    '*.zip'
   ]
 });
 

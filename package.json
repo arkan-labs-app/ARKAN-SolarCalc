@@ -9,7 +9,9 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "zip:source": "node ./scripts/zip-source.js"
+    "export": "next export",
+    "build:static": "npm run build && npm run export",
+    "zip:source": "node scripts/zip-source.js"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.14.1",
