@@ -1,4 +1,4 @@
-import type {z} from 'zod';
+import {z} from 'zod';
 
 export const CalculatorSchema = z.object({
   casa_ou_empresa: z.enum(['Minha Casa', 'Minha Empresa']),
